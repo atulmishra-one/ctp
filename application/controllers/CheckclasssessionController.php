@@ -227,7 +227,8 @@ class Checkclasssession extends Zend_Controller_Request_Http
 								Socket_Helper::write(array(
             						'class_id'		=> $class_id,
             						'section_id'	=> $section_id,
-            						'teacher_id'	=> 0
+            						'teacher_id'	=> 0,
+                                    'type'          => Socket_Helper::CLASS_START
 							    ));
             				
             				}
@@ -294,7 +295,8 @@ class Checkclasssession extends Zend_Controller_Request_Http
 		Socket_Helper::write( array(
 			'class_id' 		=> $class_id,
 			'section_id'	=> $section_id,
-			'teacher_id'	=> 0
+			'teacher_id'	=> 0,
+            'type'          => Socket_Helper::CLASS_START
 		));
 		
 	}
@@ -317,7 +319,8 @@ class Checkclasssession extends Zend_Controller_Request_Http
 		Socket_Helper::write( array(
 			'class_id' 		=> 0,
 			'section_id'	=> 0,
-			'teacher_id'	=> $teacher_id
+			'teacher_id'	=> $teacher_id,
+            'type'          => Socket_Helper::STUDENT_JOINED_CLASS
 		));
 		
 	}
