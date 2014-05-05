@@ -145,6 +145,8 @@ class Api_Model_Notification extends Zend_Db_Table_Abstract
 		n.read !=1
 		AND
 		n.read = 0
+        AND
+		nt.priority='LOW'
 		ORDER BY n.date_created DESC
 		";
 		//print $sql;

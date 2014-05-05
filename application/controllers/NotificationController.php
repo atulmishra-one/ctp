@@ -104,14 +104,14 @@ class Notification extends Zend_Controller_Request_Http
             {
             	/*exec("/opt/lampp/bin/mysql -h 172.16.0.197 -uroot -pExDb20Tra schoolerp -e ' UPDATE  `ctp_notification` ctp, ctp_notification_type ctpt SET  ctp.`read` =1 WHERE ctp.student_id = $student_id AND ctp.school_id=$school_id AND ctp.date_created < date_sub(NOW(), interval 1 minute ) AND ctp.notification_type_id = ctpt.notification_type_id and ctpt.priority =  \"'HIGH'\" and ctp.`read` != 1  ' ");
 				*/
-            	$notificationsS = self::getNotifyTable()->getByStudentId($school_id, $student_id);
+            	//$notificationsS = self::getNotifyTable()->getByStudentId($school_id, $student_id);
 				
-				if( sizeof( $notificationsS ) ) {
-					$notifications = $notificationsS;
-				}
-				else {
+				//if( sizeof( $notificationsS ) ) {
+				//	$notifications = $notificationsS;
+				//}
+				//else {
 					$notifications = self::getNotifyTable()->getByStudentIdLow($school_id, $student_id);
-				}
+				//}
             	$who = 'student_id';
                 $value = 'student_id';
             }
@@ -139,14 +139,15 @@ class Notification extends Zend_Controller_Request_Http
             	'date_recieved'			=> $notification['date_recieved'],
             	'priority'				=> $notification['priority'],
             	$who					=> $notification[$value],
-            	'paper_id'				=> self::getPaperId($notification['notification_type_id'], $notification['notification_id']),
-            	'teacher_id'			=> self::getAssessmentTeacherId($notification['notification_type_id'], $notification['notification_id']),
-            	'subject_id'			=> self::getAssessmentSubjectId($notification['notification_type_id'],  $notification['notification_id'])
+            	//'paper_id'				=> self::getPaperId($notification['notification_type_id'], $notification['notification_id']),
+            //	'teacher_id'			=> self::getAssessmentTeacherId($notification['notification_type_id'], $notification['notification_id']),
+            //	'subject_id'			=> self::getAssessmentSubjectId($notification['notification_type_id'],  $notification['notification_id'])
             	);
             }
             $uid = ( $value == 'student_id') ? $student_id : $teacher_id;
-           exec("/opt/lampp/bin/mysql -uroot -pExDb20Tra schoolerp -e ' UPDATE  `ctp_notification` ctp, ctp_notification_type ctpt SET  ctp.`read` =1 
+           /*exec("/opt/lampp/bin/mysql -uroot -pExDb20Tra schoolerp -e ' UPDATE  `ctp_notification` ctp, ctp_notification_type ctpt SET  ctp.`read` =1 
  WHERE ctp.$value = $uid AND ctp.notification_type_id = ctpt.notification_type_id and ctpt.priority =  \"'HIGH'\" and ctp.`read` != 1; ' ");
+ */
            
            
 		}
