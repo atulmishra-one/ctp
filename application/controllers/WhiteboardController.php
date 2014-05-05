@@ -225,7 +225,7 @@ class Whiteboard extends Zend_Controller_Request_Http
 				'class_id'		=> 0,
 				'section_id'	=> 0,
 				'teacher_id'	=> $class_session_teacher_id,
-                'type'          => Socket_Helper::CLASS_STOP
+                'type'          => self::getNotifyTypeTable()->get('STOP')
 				));
 			}
 			

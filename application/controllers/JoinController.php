@@ -150,7 +150,7 @@ class Join extends Zend_Controller_Request_Http
          		'class_id'		=> $classSession->class_id,
          		'section_id'	=> $classSession->section_id,
          		'teacher_id'	=> 0,
-                'type'          => Socket_Helper::EXITFROMCLASS
+                'type'          => self::getNotifyTypeTable()->get('EXITFROMCLASS')
          		));
          	}
          	

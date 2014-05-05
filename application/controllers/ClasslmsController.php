@@ -209,20 +209,9 @@ class Classlms extends Zend_Controller_Request_Http
         				'class_id'		=> $class_id,
         				'section_id'	=> $section_id,
         				'teacher_id'	=> 0,
-                        'type'          => Socket_Helper::BLACKOUT
+                        'type'          => 1001
         				));
-                        Socket_Helper::write( array(
-        				'class_id'		=> $class_id,
-        				'section_id'	=> $section_id,
-        				'teacher_id'	=> 0,
-                        'type'          => Socket_Helper::UNMUTE
-        				));
-                        Socket_Helper::write( array(
-        				'class_id'		=> $class_id,
-        				'section_id'	=> $section_id,
-        				'teacher_id'	=> 0,
-                        'type'          => Socket_Helper::LOCK
-        				));
+                       
         			}
         			
         			// SAVE BUTTONS STATUS
@@ -269,15 +258,10 @@ class Classlms extends Zend_Controller_Request_Http
         				'class_id'		=> $class_id,
         				'section_id'	=> $section_id,
         				'teacher_id'	=> 0,
-                        'type'          => Socket_Helper::BLACKIN
+                        'type'          => 1002
         				));
                         
-                        Socket_Helper::write( array(
-        				'class_id'		=> $class_id,
-        				'section_id'	=> $section_id,
-        				'teacher_id'	=> 0,
-                        'type'          => Socket_Helper::MUTE
-        				));
+                       
                         
         			}
         			
