@@ -1,0 +1,782 @@
+<?php
+/**
+ *
+ */
+class Assignment extends Zend_Controller_Request_Http
+{
+	private $output = array();
+
+	public function getAssignmentMasterTable()
+	{
+		$assignmentMasterTable = new Api_Model_AssignmentMaster();
+		return $assignmentMasterTable;
+	}
+
+	protected static function getStudentTable()
+	{
+		$studentTable = new Api_Model_Student();
+		return $studentTable;
+	}
+
+	protected static function getStaffTable()
+	{
+		$staffTable = new Api_Model_Staff();
+		return $staffTable;
+	}
+
+	protected static function getAssignStudentTable()
+	{
+		$assignStudentTable = new Api_Model_AssignmentStudent();
+		return $assignStudentTable;
+	}
+
+	protected static function getGroupMemberTable()
+	{
+		$groupMemberTable = new Api_Model_GroupMember();
+		return $groupMemberTable;
+	}
+
+	protected static function getGroupAssignmentsTable()
+	{
+		$groupAssignments = new Api_Model_GroupHomework();
+		return $groupAssignments;
+	}
+	protected static function getClassTable()
+	{
+		$classTable = new Api_Model_GetClass();
+		return $classTable;
+	}
+
+	protected static function getSectionTable()
+	{
+		$sectionTable = new Api_Model_GetSection();
+		return $sectionTable;
+	}
+
+	protected static function getSubjectTable()
+	{
+		$sectionTable = new Api_Model_GetSubject();
+		return $sectionTable;
+	}
+
+	protected static function getRemarkTable()
+	{
+		$remarkTable = new Api_Model_AssignmentRemark();
+		return $remarkTable;
+	}
+
+	protected static function getDate( $date)
+	{
+		if ( $date > 0) {
+			return date('Y-m-d', strtotime($date) );
+		}
+		
+		return '';
+	}
+
+	protected static function assignStatus($aid, $sid, $date)
+	{
+		$status = '';
+		if (  self::getAssignStudentTable()->isPending($aid, $sid)  == 0)
+		{
+			$status = 'Pending';
+		}
+		elseif ( self::getAssignStudentTable()->isLate($aid, $sid, $date) == 1 )
+		{
+			$status = 'Late';
+		}
+		elseif ( self::getAssignStudentTable()->isSumitted($aid, $sid, $date) == 1)
+		{
+			$status = 'Submitted';
+		}
+
+		return $status;
+	}
+
+	protected function _outputTeacher( $content )
+	{
+		$class_name   = self::getClassTable()->getName( $content['school_auto_id'], $content['class_auto_id']);
+		$section_name = self::getSectionTable()->getName( $content['school_auto_id'], $content['section_id']);
+		$subject_name = self::getSubjectTable()->getName($content['subject_id']);
+		$attachments = Attachment_Helper::getAttachment($content['upload_file']);
+		$date_added  = self::getDate( $content['added_date']);
+		$target_date = self::getDate($content['submission_date']);
+		$status      = $content['status'] == 'Active' ? 'YES':'NO';
+
+		$total_remark = (int)self::getRemarkTable()->getTotal($content['id']);
+		
+		$total_group_homework = self::getGroupAssignmentsTable()->getTotal($content['id']);
+
+		if ( sizeof($total_group_homework) )
+		{
+			if ( $status == 'YES')
+			{
+				$totalCount = '';
+				$totalSubmit = '';
+				foreach ( $total_group_homework as $tgh )
+				{
+					$totalSubmit = self::getAssignStudentTable()->getTotal($content['id']);
+					$totalCount  += self::getGroupMemberTable()->getCountByGroupId($tgh['group_id']);
+				}
+
+				$total = $totalCount.'/'.$totalSubmit.'/'.$total_remark;
+
+			}
+			else
+			{
+				$total = '';
+			}
+		}
+		else
+		{
+			$student_list = self::getStudentTable()
+			->getStudentList($content['school_auto_id'], $content['class_auto_id'], $content['section_id']);
+				
+			if ( $status == 'YES')
+			{
+				$total = count($student_list).'/'.self::getAssignStudentTable()->getTotal( $content['id'] ).'/'.$total_remark;
+			}
+			else
+			{
+				$total = '';
+			}
+				
+		}
+
+		return array(
+			'assignment_master_id'	=> $content['id'],
+			'assignment_title'		=> html_entity_decode($content['assignment_title'], ENT_QUOTES),
+			'class_id'			=> $content['class_auto_id'],
+			'subject_id'			=> $content['subject_id'],
+			'section_id'			=> $content['section_id'],
+			'subject_name'			=> $subject_name,
+			'class_name'			=> $class_name,
+			'section_name'			=> $section_name,
+			'status'				=> $status,
+			'added_date'			=> $date_added,
+			'target_date'			=> $target_date,
+			'content'			=> $content['content'],
+			'attachments'			=> $attachments,
+			'submission_count'		=> $total
+		);
+
+
+
+	}
+	protected function _outputStudent( $content )
+	{
+		$target_date = self::getDate( $content['submission_date']);
+		$status = self::assignStatus($content['id'], $content['student_id'] , $target_date);
+
+		$attachments = Attachment_Helper::getAttachment($content['upload_file']);
+		$attachments1 = array();
+
+		if ( $status == 'Submitted' || $status == 'Late')
+		{
+			$attach = self::getAssignStudentTable()->getInfoById($content['id'], $content['student_id'], 'upload_file');
+			$attachments1 = Attachment_Helper::getAttachment($attach);
+		}
+
+		$attachmentsFiles = array_merge($attachments, $attachments1);
+		//$status      = $content['status'] == 'Active' ? 'YES':'NO';
+
+		$date_added  = self::getDate( $content['added_date']);
+
+		$show_remarks = self::getRemarkTable()->getByAssignmentAndStudent($content['id'], 'show_remarks', $content['student_id']);
+		
+		$remarks = '';
+		if ( $show_remarks )
+		{
+			$remarks = self::getRemarkTable()->getByAssignmentAndStudent($content['id'], 'remark', $content['student_id']);
+		}
+		
+		$marks = '';
+		$show_marks = self::getRemarkTable()->getByAssignmentAndStudent($content['id'], 'show_marks', $content['student_id']);
+		
+		if ( $show_marks )
+		{
+			$marks = self::getRemarkTable()->getByAssignmentAndStudent($content['id'], 'marks', $content['student_id']);
+		}
+		$subject_name = self::getSubjectTable()->getName($content['subject_id']);
+		$assigned_by  = self::getStaffTable()->getFullname($content['staff_id']);
+		
+		return array(
+			'assignment_master_id'	=> $content['id'],
+			'assignment_title'		=> html_entity_decode($content['assignment_title'], ENT_QUOTES),
+			'subject_id'			=> $content['subject_id'],
+			'subject_name'			=> $subject_name,
+			'assigned_by'			=> $assigned_by,
+			'status'			=> $status,
+			'remark'			=> $remarks,
+			'target_date'			=> $target_date,
+			'group_name'			=> '',
+			'attachments'			=> $attachmentsFiles,
+			'content'				=> $content['content'],
+			'marks'					=> $marks,
+			'added_date'			=> $date_added
+		);
+		
+		
+		
+	}
+	public function indexAction()
+	{
+		include_once APPLICATION_PATH.'/models/AssignmentMaster.php';
+		include_once APPLICATION_PATH.'/models/GetClass.php';
+		include_once APPLICATION_PATH.'/models/GetSection.php';
+		include_once APPLICATION_PATH.'/helpers/Attachment.php';
+		include_once APPLICATION_PATH.'/models/GroupHomework.php';
+		include_once APPLICATION_PATH.'/models/AssignmentStudent.php';
+		include_once APPLICATION_PATH.'/models/GroupMember.php';
+		include_once APPLICATION_PATH.'/models/Student.php';
+		include_once APPLICATION_PATH.'/models/GetSubject.php';
+		include_once APPLICATION_PATH.'/models/AssignmentRemark.php';
+		include_once APPLICATION_PATH.'/models/Staff.php';
+		try {
+			$school_id  = $this->getParam('school_id');
+			$class_id   = $this->getParam('class_id');
+		    $section_id = $this->getParam('section_id');
+		    $subject_id = $this->getParam('subject_id');
+		    $date       = $this->getParam('date');
+		    $teacher_id = $this->getParam('teacher_id');
+		    $student_id = $this->getParam('student_id');
+		    $keyword    = $this->getParam('keyword');
+		    
+		    if ( !empty($student_id) )
+		    {
+		    	if ( !empty( $school_id) && !empty($class_id) && !empty($section_id))
+		    	{
+		    		if (!empty( $keyword) )
+		    		{
+		    			$assigns = $this->getAssignmentMasterTable()
+		    			->getAssignmentListBySearch( array(
+		    				'school_id' => $school_id,
+		    				'member_id' => $student_id,
+		    				'class_id'	=> $class_id,
+		    				'section_id'=> $section_id,
+		    				'keyword'	=> $keyword
+		    			));
+		    			
+		    			if ( sizeof($assigns) >= 1)
+		    			{
+		    				foreach ( $assigns as $assign )
+		    				{
+		    					$assign['student_id'] = $student_id;
+		    					$this->output['status'] =1;
+		    					$this->output['contents'][] = $this->_outputStudent( $assign);
+		    				}
+		    			}
+		    		}
+		    		else if( empty($subject_id) and empty($date) )
+		    		{
+		    			$assigns = $this->getAssignmentMasterTable()->getAssignmentList( array(
+		    				'school_id' => $school_id,
+		    				'member_id'	=> $student_id,
+		    				'class_id'	=> $class_id,
+		    				'section_id'=> $section_id
+		    			));
+		    			
+		    			if ( sizeof($assigns) )
+		    			{
+		    				foreach ( $assigns as $assign )
+		    				{
+		    					$assign['student_id'] = $student_id;
+		    					$this->output['status'] =1;
+		    					$this->output['contents'][] = $this->_outputStudent( $assign);
+		    				}
+		      			}
+		    		}
+		    		else if( empty($subject_id) and !empty($date) )
+		    		{
+		    			$assigns = $this->getAssignmentMasterTable()->getAssignmentList( array(
+		    				'school_id'	 => $school_id,
+		    				'member_id'  => $member_id,
+		    				'class_id'	 => $class_id,
+		    				'section_id' => $section_id,
+		    				'date'		 => $date
+		    			));
+		    			
+		    			if ( sizeof($assigns) >= 1)
+		    			{
+		    				foreach ( $assigns as $assign )
+		    				{
+		    					$assign['student_id'] = $student_id;
+		    					$this->output['status'] = 1;
+		    					$this->output['contents'][] = $this->_outputStudent( $assign);
+		    				}
+		    			}
+		    		}
+		    		else if( !empty($subject_id) and empty($date) )
+		    		{
+		    			$assigns = $this->getAssignmentMasterTable()->getAssignmentList( array(
+		    				'school_id'	 => $school_id,
+		    				'member_id'  => $member_id,
+		    				'class_id'	 => $class_id,
+		    				'section_id' => $section_id,
+		    			 	'subject_id' => $subject_id
+		    			));
+		    			
+		    			if ( sizeof($assigns) >= 1)
+		    			{
+		    				foreach ( $assigns as $assign )
+		    				{
+		    					$assign['student_id'] = $student_id;
+		    					$assign['subject_id'] = '';
+		    					$this->output['status'] = 1;
+		    					$this->output['contents'][] = $this->_outputStudent( $assign);
+		    				}
+		    			}
+		    		}
+		    		else if( !empty($subject_id) and !empty($date) )
+		    		{
+		    			$assigns = $this->getAssignmentMasterTable()->getAssignmentList( array(
+		    				'school_id'	 => $school_id,
+		    				'member_id'  => $member_id,
+		    				'class_id'	 => $class_id,
+		    				'section_id' => $section_id,
+		    			 	'subject_id' => $subject_id,
+		    				'date'		 => $date
+		    			));
+		    			
+		    			if ( sizeof($assigns) >= 1)
+		    			{
+		    				foreach ( $assigns as $assign )
+		    				{
+		    					$assign['student_id'] = $student_id;
+		    					$assign['subject_id'] = '';
+		    					$this->output['status'] = 1;
+		    					$this->output['contents'][] = $this->_outputStudent( $assign);
+		    				}
+		    			}
+		    		}
+		    		else 
+		    		{
+		    			
+		    		}
+		    	}
+		    }
+		    elseif (!empty($teacher_id) && !empty( $school_id) )
+		    {
+		    	if ( !empty($keyword))
+		    	{
+		    		$assigns = $this->getAssignmentMasterTable()
+		    		->getListAssignmentTeacherBySearch( array(
+		    			'school_id'		=> $school_id,
+		    			'teacher_id'	=> $teacher_id,
+		    			'keyword'		=> $keyword
+		    		));
+		    		
+		    		foreach ( $assigns as $assign )
+		    		{
+		    			$this->output['status'] = 1;
+		    			$this->output['contents'][] = $this->_outputTeacher( $assign);
+		    		}
+		    	}
+		    	else if( empty($class_id) && empty($section_id) && empty($subject_id) && empty($date))
+		    	{
+		    		$assigns = $this->getAssignmentMasterTable()
+		    		->getListAssignmentTeacher( array(
+		    		'school_id'		=> $school_id,
+		    		'teacher_id'	=> $teacher_id
+		    		));
+		    	
+		    		foreach ( $assigns as $assign )
+		    		{
+		    			$this->output['status'] = 1;
+		    			$this->output['contents'][] = $this->_outputTeacher( $assign);
+		    		}
+		    	}
+		    	else if( empty($class_id) && empty($section_id) && empty($subject_id) && !empty($date) )
+		    	{
+		    		$assigns = $this->getAssignmentMasterTable()
+		    		->getListAssignmentTeacher( array(
+		    		'school_id'		=> $school_id,
+		    		'teacher_id'	=> $teacher_id,
+		    		'date'			=> $date
+		    		));
+		    	
+		    		foreach ( $assigns as $assign )
+		    		{
+		    			$this->output['status'] = 1;
+		    			$this->output['contents'][] = $this->_outputTeacher( $assign);
+		    		}
+		    	}
+		    	else if( empty($class_id) && empty($section_id) && !empty($subject_id) && empty($date) )
+		    	{
+		    		$assigns = $this->getAssignmentMasterTable()
+		    		->getListAssignmentTeacher( array(
+		    		'school_id'		=> $school_id,
+		    		'teacher_id'	=> $teacher_id,
+		    		'subject_id'	=> $subject_id
+		    		));
+		    	
+		    		foreach ( $assigns as $assign )
+		    		{
+		    			$this->output['status'] = 1;
+		    			$assign['subject_id'] = '';
+		    			$this->output['contents'][] = $this->_outputTeacher( $assign);
+		    		}
+		    	}
+		    	else if( empty($class_id) && empty($section_id) && !empty($subject_id) && !empty($date) )
+				{
+				}
+				else if( empty($class_id) && !empty($section_id) && empty($subject_id) && empty($date) )
+				{
+				}
+				else if( empty($class_id) && !empty($section_id) && empty($subject_id) && !empty($date) )
+				{
+				}
+				else if( empty($class_id) && !empty($section_id) && !empty($subject_id) && empty($date) )
+				{
+				 $assigns = $this->getAssignmentMasterTable()
+		    		->getListAssignmentTeacher( array(
+		    		'school_id'		=> $school_id,
+		    		'teacher_id'	=> $teacher_id,
+		    		'subject_id'	=> $subject_id
+		    		));
+		    	
+		    		foreach ( $assigns as $assign )
+		    		{
+		    			$this->output['status'] = 1;
+		    			$assign['subject_id'] = '';
+		    			$this->output['contents'][] = $this->_outputTeacher( $assign);
+		    		}
+				}
+				else if( empty($class_id) && !empty($section_id) && !empty($subject_id) && !empty($date) )
+				{
+					
+				}
+				else if( !empty($class_id) && empty($section_id) && empty($subject_id) && empty($date) )
+				{
+					$assigns = $this->getAssignmentMasterTable()
+		    		->getListAssignmentTeacher( array(
+		    		'school_id'		=> $school_id,
+		    		'teacher_id'	=> $teacher_id,
+		    		'class_id'		=> $class_id
+		    		));
+		    	
+		    		foreach ( $assigns as $assign )
+		    		{
+		    			$this->output['status'] = 1;
+		    			$assign['class_auto_id'] = '';
+		    			$this->output['contents'][] = $this->_outputTeacher( $assign);
+		    		}
+				}
+				else if( !empty($class_id) && empty($section_id) && empty($subject_id) && !empty($date) )
+				{
+				  $assigns = $this->getAssignmentMasterTable()
+		    		->getListAssignmentTeacher( array(
+		    		'school_id'		=> $school_id,
+		    		'teacher_id'	=> $teacher_id,
+		    		'class_id'		=> $class_id,
+		    		'date'			=> $date
+		    		));
+		    	
+		    		foreach ( $assigns as $assign )
+		    		{
+		    			$this->output['status'] = 1;
+		    			$assign['class_auto_id'] = '';
+		    			$this->output['contents'][] = $this->_outputTeacher( $assign);
+		    		}
+				}
+		        else if( !empty($class_id) && empty($section_id) && !empty($subject_id) && empty($date) )
+				{
+				}
+				else if( !empty($class_id) && empty($section_id) && !empty($subject_id) && !empty($date) )
+				{
+				}
+				else if( !empty($class_id) && !empty($section_id) && empty($subject_id) && empty($date) )
+				{
+				  $assigns = $this->getAssignmentMasterTable()
+		    		->getListAssignmentTeacher( array(
+		    		'school_id'		=> $school_id,
+		    		'teacher_id'	=> $teacher_id,
+		    		'class_id'		=> $class_id,
+		    		'section_id'	=> $section_id
+		    		));
+		    	
+		    		foreach ( $assigns as $assign )
+		    		{
+		    			$this->output['status'] = 1;
+		    			$assign['class_auto_id'] = '';
+		    			$assign['section_id'] = '';
+		    			$this->output['contents'][] = $this->_outputTeacher( $assign);
+		    		}
+				}
+				else if( !empty($class_id) && !empty($section_id) && empty($subject_id) && !empty($date) )
+				{
+				  $assigns = $this->getAssignmentMasterTable()
+		    		->getListAssignmentTeacher( array(
+		    		'school_id'		=> $school_id,
+		    		'teacher_id'	=> $teacher_id,
+		    		'class_id'		=> $class_id,
+		    		'section_id'	=> $section_id,
+		    		'date'			=> $date
+		    		));
+		    	
+		    		foreach ( $assigns as $assign )
+		    		{
+		    			$this->output['status'] = 1;
+		    			$assign['class_auto_id'] = '';
+		    			$assign['section_id'] = '';
+		    			$this->output['contents'][] = $this->_outputTeacher( $assign);
+		    		}
+				}
+				else if( !empty($class_id) && !empty($section_id) && !empty($subject_id) && empty($date) )
+				{
+				   $assigns = $this->getAssignmentMasterTable()
+		    		->getListAssignmentTeacher( array(
+		    		'school_id'		=> $school_id,
+		    		'teacher_id'	=> $teacher_id,
+		    		'class_id'		=> $class_id,
+		    		'section_id'	=> $section_id,
+		    		'subject_id'	=> $subject_id
+		    		));
+		    	
+		    		foreach ( $assigns as $assign )
+		    		{
+		    			$this->output['status'] = 1;
+		    			$assign['class_auto_id'] = '';
+		    			$assign['section_id'] = '';
+		    			$assign['subject_id'] = '';
+		    			$this->output['contents'][] = $this->_outputTeacher( $assign);
+		    		}
+				}
+				else if( !empty($class_id) && !empty($section_id) && !empty($subject_id) && !empty($date) )
+				{
+				   $assigns = $this->getAssignmentMasterTable()
+		    		->getListAssignmentTeacher( array(
+		    		'school_id'		=> $school_id,
+		    		'teacher_id'	=> $teacher_id,
+		    		'class_id'		=> $class_id,
+		    		'section_id'	=> $section_id,
+		    		'subject_id'	=> $subject_id,
+		    		'date'			=> $date
+		    		));
+		    	
+		    		foreach ( $assigns as $assign )
+		    		{
+		    			$this->output['status'] = 1;
+		    			$assign['class_auto_id'] = '';
+		    			$assign['section_id'] = '';
+		    			$assign['subject_id'] = '';
+		    			$this->output['contents'][] = $this->_outputTeacher( $assign);
+		    		}
+				}
+		    }
+		    else {
+		    	throw new Exception('Please provide student_id or teacher_id');
+		    }
+			
+		}catch (Exception $e)
+		{
+			$this->output['status']  = 0;
+			$this->output['message'] = $e->getMessage();
+		}
+		
+		if ( sizeof( $this->output) < 1 )
+		{
+			$this->output['status'] = 0;
+			$this->output['message'] = 'No records';
+		}
+		
+		$response = new Response();
+			$response->getResponse()
+			->setHttpResponseCode(200)
+			->setHeader( 'Content-Type', 'application/json' )
+			->appendBody( json_encode( $this->output ) );
+		
+	}
+	
+	public function getAction()
+	{
+		try {
+			$school_id  		  = $this->getParam('school_id');
+			$assignment_master_id = $this->getParam('assignment_master_id');
+			
+			if ( empty($school_id) or empty($assignment_master_id) )
+			{
+				throw new Exception('Please provide school_id and assignment_master_id');
+			}
+			
+			include_once APPLICATION_PATH.'/helpers/AssignmentGet.php';
+			$assignment = new Assignment_Get_Helper();
+			$this->output = $assignment->getGroupAssignments( array(
+				'school_id' 			=> $school_id,
+				'assignment_master_id'	=> $assignment_master_id
+			));
+			
+			
+		}catch (Exception $e)
+		{
+			$this->output['status']  = 0;
+			$this->output['message'] = $e->getMessage();
+		}
+		if ( sizeof( $this->output) < 1 )
+		{
+			$this->output['status'] = 0;
+			$this->output['message'] = 'No records';
+		}
+		$response = new Response();
+			$response->getResponse()
+			->setHttpResponseCode(200)
+			->setHeader( 'Content-Type', 'application/json' )
+			->appendBody( json_encode( $this->output ) );
+	}
+	
+	public function postAction()
+	{
+		/**
+		 * {
+  "group_id": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "class_id": 1,
+  "section_id": 1,
+  "assigned_to": [
+    {
+      "class_id": 1,
+      "section_id": 1
+    },
+    {
+      "class_id": 1,
+      "section_id": 1
+    },
+    {
+      "class_id": 1,
+      "section_id": 1
+    },
+    {
+      "class_id": 1,
+      "section_id": 1
+    }
+  ],
+  "teacher_id": 1,
+  "h_status": "ACTIVE",
+  "content": "world!",
+  "status": "YES",
+  "assignment_title": "This is Hello World title",
+  "subject_id": 1,
+  "target_date": "2013-09-15",
+  "mode": "TABLET",
+  "attachments": [
+    "CPTTest.txt",
+    "teacher/asign/ki.ll"
+  ]
+}
+		 */
+		try {
+				
+			$school_id = $this->getParam('school_id');
+			$path      = $this->getParam('path');
+			$jsonData  = $this->getParam('data');
+			$data      = json_decode($jsonData , true);
+			
+			if ( empty( $school_id) || empty( $data ) )
+			{
+				throw new Exception('Please provide school_id and data');
+			}
+			
+			if ( !is_array( $data) )
+			{
+				throw new Exception('Please provide data as json');
+			}
+			
+			$target_date = !empty( $data['target_date'] )? date('Y-m-d h:i:s', strtotime($data['target_date'], time())) : '0000-00-00 00:00:00';
+			
+			include APPLICATION_PATH.'/helpers/Attachment.php';
+			
+			$assignment_id = 0;
+			
+			if ( !empty( $this->getParam('assignment_id')) )
+			{
+				$assignment_id = $this->getParam('assignment_id');
+			}
+			else 
+			{
+				$assignment_id = isset( $data['assignment_id'] ) ? $data['assignment_id']: 0;
+			}
+			
+			$status = ( trim( $data['status'] ) == 'YES' or trim($data['status']) == 'Yes' ) ? 'Active' : 'Inactive';
+			
+			$input = array(
+			 'school_id' 	=> (int)$school_id,
+			 'class_id'  	=> (int)$data['class_id'],
+			 'section_id'	=> (int)$data['section_id'],
+			 'subject_id'	=> (int)$data['subject_id'],
+			 'group_id'  	=> $data['group_id'],
+			 'assigned_to'	=> $data['assigned_to'],
+			 'title'		=> (string)$data['assignment_title'],
+			 'teacher_id'	=> (int)$data['teacher_id'],
+			 'status'		=> $status,
+			 'content'		=> $data['content'],
+			 'attachments'  => Attachment_Helper::makeAttachment($data['attachments'], $path),
+			 'target_date'  => $target_date,
+			 'mode'			=> $data['mode'],
+			 'assignment_id'=> $assignment_id
+			);
+
+			include_once APPLICATION_PATH.'/helpers/AssignmentSave.php';
+			$assignmentHelper = new Assignment_Save_Helper();
+			
+			if ( empty( $input['assignment_id']) )
+			{// CREATE ASSIGNMENT
+				if ( is_array( $input['group_id']) && sizeof( $input['group_id']) && !empty($input['group_id'][0]))
+				{
+					$assignmentHelper->saveGroupAssignment($input);
+					$this->output['status'] = 1;
+					$this->output['message'] = 'success';
+				}
+				elseif ( is_array( $input['assigned_to']) && sizeof($input['assigned_to']) && !empty($input['assigned_to'][0]) )
+				{
+					
+					$assignmentHelper->saveAssignmentForCLass($input);
+					$this->output['status'] = 1;
+					$this->output['message'] = 'success';
+				}
+				else 
+				{
+					$assignmentHelper->saveAssignment($input);
+					$this->output['status'] = 1;
+					$this->output['message'] = 'success';
+				}
+			}
+			else 
+			{// UPDATE ASSIGNMENT
+				if ( is_array( $input['group_id']) && sizeof( $input['group_id']) && !empty($input['group_id'][0]) )
+				{
+					$assignmentHelper->updateGroupAssignment($input);
+					$this->output['status'] = 1;
+					$this->output['message'] = 'success';
+				}
+				elseif ( is_array( $input['assigned_to']) && sizeof($input['assigned_to']) && !empty($input['assigned_to'][0]) )
+				{
+					$assignmentHelper->updateAssignmentForCLass($input);
+					$this->output['status'] = 1;
+					$this->output['message'] = 'success';
+				}
+				else 
+				{
+					$assignmentHelper->updateAssignment($input);
+					$this->output['status'] = 1;
+					$this->output['message'] = 'success';
+				}
+			}
+			
+				
+		}catch (Exception $e)
+		{
+			$this->output['status']  = 0;
+			$this->output['message'] = $e->getMessage();	
+		}
+
+		$response = new Response();
+		$response->getResponse()
+		->setHttpResponseCode(200)
+		->setHeader( 'Content-Type', 'application/json' )
+		->appendBody( json_encode( $this->output ) );
+	}
+}

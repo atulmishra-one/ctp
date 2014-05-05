@@ -1,0 +1,37 @@
+<?php
+
+class Response
+{
+
+public $httpCode;
+public $setHeader;
+public $appendBody;
+public $getResponse;
+
+public function getResponse()
+{
+}
+
+public function setHttpResponseCode( $code)
+{
+  $this->httpCode = header("HTTP/1.1 $code", true, $code);
+  return $this;
+}
+
+public function setHeader()
+{
+  $this->setHeader = header("Content-Type: application/json");
+    return $this;
+}
+
+public function appendBody( $body )
+{
+  $this->appendBody = $body;
+  ob_start();
+  echo $body;
+  ob_end_clean();
+  return $this;
+}
+
+
+}

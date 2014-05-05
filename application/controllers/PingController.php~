@@ -1,0 +1,9 @@
+<?php
+
+class Ping
+{
+	public function getAction()
+	{
+		echo 1;
+	}
+}
